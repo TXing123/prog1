@@ -315,6 +315,10 @@ command_parse(parsestate_t *parsestate)
 	if (!cmd)
 		return NULL;
 
+
+	int flag_in=0;
+	int flag_out=0;
+	int flag_err=0;
 	while (1) {
 		// EXERCISE: Read the next token from 'parsestate'.
 
@@ -346,12 +350,73 @@ command_parse(parsestate_t *parsestate)
 		// you can use for parens; figure out how to use it!
 
 		token_t token;
+		memset(&token, 0, sizeof(token));
 		parse_gettoken(parsestate, &token);
+
+		//if((flag_in || flag_out || flag_err) && token.type!=TOK_NORMAL)
+		//	goto error;
 
 		switch (token.type) {
 		case TOK_NORMAL:
+			if(flag_out){
+				flag_out=0;
+				cmd->redirect_filename[1]=strdup(token.buffer);
+				break;
+			}
+			else if(flag_in){
+				flag_in=0;
+				cmd->redirect_filename[0]=strdup(token.buffer);
+				break;
+			}
+			else if(flag_err){
+				flag_err=0;
+				cmd->redirect_filename[2]=strdup(token.buffer);
+				break;
+			}
+			if(i==MAXTOKENS) goto error;
 			cmd->argv[i] = strdup(token.buffer);
 			i++;
+			break;
+		case TOK_PIPE:
+			cmd->controlop=CMD_PIPE;
+			parse_ungettoken(parsestate);
+			goto done;
+		case TOK_DOUBLEPIPE:
+			cmd->controlop=CMD_OR;
+			parse_ungettoken(parsestate);
+			goto done;
+		case TOK_AMPERSAND:
+			cmd->controlop=CMD_BACKGROUND;
+			parse_ungettoken(parsestate);
+			goto done;
+		case TOK_DOUBLEAMP:
+			cmd->controlop=CMD_AND;
+			parse_ungettoken(parsestate);
+			goto done;
+		case TOK_SEMICOLON:
+			cmd->controlop=CMD_SEMICOLON;
+			parse_ungettoken(parsestate);
+			goto done;
+		case TOK_OPEN_PAREN:
+			cmd->subshell=command_line_parse(parsestate,1);
+			break;
+		case TOK_CLOSE_PAREN:
+			parse_ungettoken(parsestate);
+			goto done;
+		case TOK_END:
+			parse_ungettoken(parsestate);
+			cmd->controlop=CMD_END;
+			goto done;
+		case TOK_ERROR:
+			goto error;
+		case TOK_GREATER_THAN:
+			flag_out=1;
+			break;
+		case TOK_LESS_THAN:
+			flag_in=1;
+			break;
+		case TOK_2_GREATER_THAN:
+			flag_err=1;
 			break;
 		default:
 			parse_ungettoken(parsestate);
@@ -365,7 +430,7 @@ command_parse(parsestate_t *parsestate)
 
 	// EXERCISE: Make sure you return the right return value!
 
-	if (i == 0) {
+	if (i == 0 && cmd->subshell==NULL) {
 		/* Empty command */
 		command_free(cmd);
 		return NULL;
@@ -408,9 +473,14 @@ command_line_parse(parsestate_t *parsestate, int in_parens)
 	// COMMAND &&                          => error (can't end with &&)
 	// COMMAND )                           => error (but OK if "in_parens")
 	
+	int flag_end=0;
+
 	while (1) {
 		// Parse the next command.
 		cmd = command_parse(parsestate);
+		if(cmd==NULL && flag_end){
+			goto done;
+		}
 		if (!cmd)		// Empty commands are errors.
 			goto error;
 
@@ -428,6 +498,25 @@ command_line_parse(parsestate_t *parsestate, int in_parens)
 		// the command line.
 
 		/* Your code here */
+		memset(&token, 0, sizeof(token));
+		parse_gettoken(parsestate, &token);
+        switch(token.type) {
+        	case TOK_SEMICOLON:
+        	case TOK_AMPERSAND:
+        		flag_end=1;
+        	case TOK_DOUBLEPIPE:
+        	case TOK_DOUBLEAMP:
+        	case TOK_PIPE:
+        	continue;
+        	case TOK_CLOSE_PAREN:
+        		if(in_parens){
+        			goto done;
+        		}
+        		goto error;
+        	case TOK_END:
+        		goto done;
+        }
+
 		goto done;
 	}
 
@@ -435,8 +524,17 @@ command_line_parse(parsestate_t *parsestate, int in_parens)
 	// EXERCISE: Check that the command line ends properly.
 
 	/* Your code here */
-
-	return head;
+ 	switch (prev_cmd->controlop){
+ 		case CMD_AND:
+ 		case CMD_OR:
+ 		case CMD_PIPE:
+ 			goto error;
+ 		case CMD_SEMICOLON:
+ 		case CMD_BACKGROUND:
+ 		case CMD_END:
+ 			return head;
+ 			//printf("command_line_parse end \n");
+ 	}
 
  error:
 	command_free(head);

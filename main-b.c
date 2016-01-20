@@ -63,8 +63,8 @@ main(int argc, char *argv[])
 		}
 
 		// TODO: invoke some function(s) in cmdline.c for parsing the read string.
-		parse_init(parsestate,input);
-		cmdlist=command_line_parse(parsestate,0);
+		parse_init(&parsestate,input);
+		cmdlist=command_line_parse(&parsestate,0);
 
 		if (!cmdlist) {
 			printf("Syntax error\n");
@@ -74,14 +74,14 @@ main(int argc, char *argv[])
 		// print the command list
 		if (!quiet) {
 			// TODO: invoke some function(s) in cmdline.c for printing out the command for debugging.
-			XXXXXXXXXXXXXX
+			//XXXXXXXXXXXXXX
 			// why do we need to do this?
 			fflush(stdout);
 		}
 
 		// and run it!
-		if (cmdlist)
-			command_line_exec(cmdlist);
+		//if (cmdlist)
+			//command_line_exec(cmdlist);
 
 	}
 
