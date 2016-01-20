@@ -80,6 +80,9 @@ parse_gettoken(parsestate_t *parsestate, token_t *token)
 	// EXERCISE: Skip initial whitespace in 'str'.
 
 	/* Your code here. */
+	while(isspace((int)(*str))){
+		str++;
+	}
 	
 	// Report TOK_END at the end of the command string.
 	if (*str == '\0') {
@@ -100,11 +103,83 @@ parse_gettoken(parsestate_t *parsestate, token_t *token)
 	// Change this code to handle quotes and terminate tokens at spaces.
 
 	i = 0;
+	int flag_double_quote=0; 
+	int flag_token_end=0;
+	token->type=TOK_NORMAL;
 	while (*str != '\0') {
 		if (i >= TOKENSIZE - 1)
 			// Token too long; this is an error
 			goto error;
+
+		if(*str=='\"'){
+			if(!flag_double_quote){
+				flag_double_quote=1;
+			}
+			else{
+				flag_double_quote=0;
+			}
+			str++;
+			continue;
+
+		}
+		else if(!flag_double_quote && (isspace((int)(*str))|| (i!=0 &&(	*str == '<' || 
+                                                     					*str == '>' ||
+                                                     					*str == ';' ||
+                                                     					*str == '&' ||
+                                                     					*str == '|' ||
+                                                     					*str == '(' ||
+                                                     					*str == ')' )))){
+			break;
+		}
+		else{
+			if(*str=='<'){
+				flag_token_end=1;
+				token->type=TOK_LESS_THAN;
+			}
+			else if(*str=='>'){
+				flag_token_end=1;
+				token->type=TOK_GREATER_THAN;
+			}
+			else if(*str==';'){
+				flag_token_end=1;
+				token->type=TOK_SEMICOLON;
+			}
+			else if(*str=='&'){
+				flag_token_end=1;
+				if(*(str+1)=='&'){
+					token->buffer[i++] = *str++;
+					token->type=TOK_DOUBLEAMP;
+				}
+				else token->type=TOK_AMPERSAND;
+			}
+			else if(*str=='('){
+				flag_token_end=1;
+				token->type=TOK_OPEN_PAREN;
+			}
+			else if(*str==')'){
+				flag_token_end=1;
+				token->type=TOK_CLOSE_PAREN;
+			}
+			else if(*str=='|'){
+				flag_token_end=1;
+				if(*(str+1)=='|'){
+					token->buffer[i++] = *str++;
+					token->type=TOK_DOUBLEPIPE;
+				}
+				else token->type=TOK_PIPE;
+			}
+			else if(*str=='2'&& i==0){
+				if(*(str+1)=='>'){
+					token->type=TOK_2_GREATER_THAN;
+					token->buffer[i++] = *str++;
+					flag_token_end=1;
+				}
+			}
+		}
+
+		
 		token->buffer[i++] = *str++;
+		if(flag_token_end) break;
 	}
 	token->buffer[i] = '\0';	// end the token string
 
@@ -119,8 +194,8 @@ parse_gettoken(parsestate_t *parsestate, token_t *token)
 	// Quoted special tokens, such as '">"', have type TOK_NORMAL.
 
 	/* Your code here. */
-	
-	token->type = TOK_NORMAL;
+
+	//token->type = TOK_NORMAL;
 	return;
 
  error:
@@ -191,6 +266,27 @@ command_free(command_t *cmd)
 		return;
 
 	/* Your code here. */
+	i=0;
+	while(cmd->argv[i]!=NULL&&i<MAXTOKENS+1){
+		free(cmd->argv[i++]);
+	}
+	i=0;
+	while(i<3){
+		if (cmd->redirect_filename[i]!=NULL)
+		{
+			free(cmd->redirect_filename[i]);
+		}
+		i++;
+	}
+	if(cmd->subshell!=NULL){
+		command_free(cmd->subshell);
+	}
+	if(cmd->next!=NULL){
+		command_free(cmd->next);
+	}
+	free(cmd);
+
+
 }
 
 
