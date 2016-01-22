@@ -131,6 +131,11 @@ parse_gettoken(parsestate_t *parsestate, token_t *token)
                                                      					*str == ')' )))){
 			break;
 		}
+		else if (flag_double_quote)
+		{
+			;
+			// do nothing
+		}
 		else{
 			if(*str=='<'){
 				flag_token_end=1;

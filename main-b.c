@@ -74,14 +74,14 @@ main(int argc, char *argv[])
 		// print the command list
 		if (!quiet) {
 			// TODO: invoke some function(s) in cmdline.c for printing out the command for debugging.
-			//XXXXXXXXXXXXXX
+			command_print(cmdlist,1);
 			// why do we need to do this?
 			fflush(stdout);
 		}
 
 		// and run it!
-		//if (cmdlist)
-			//command_line_exec(cmdlist);
+		if (cmdlist)
+			command_line_exec(cmdlist);
 
 	}
 
