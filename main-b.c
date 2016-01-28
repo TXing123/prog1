@@ -80,6 +80,8 @@ main(int argc, char *argv[])
 		}
 
 		// and run it!
+		int not_impotant=0;
+		waitpid(-1,&not_impotant,WNOHANG);//kill zombies
 		if (cmdlist)
 			command_line_exec(cmdlist);
 

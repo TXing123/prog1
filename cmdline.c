@@ -319,7 +319,6 @@ command_parse(parsestate_t *parsestate)
 	command_t *cmd = command_alloc();
 	if (!cmd)
 		return NULL;
-	cmd->controlop=CMD_SEMICOLON;//for zombie control
 
 	int flag_in=0;
 	int flag_out=0;

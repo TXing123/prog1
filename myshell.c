@@ -316,9 +316,9 @@ command_line_exec(command_t *cmdlist)
 			if(WIFEXITED(wp_status)){
 				cmd_status=WEXITSTATUS(wp_status);
 			}
-			if(cmdlist->controlop==CMD_END){
+			/*if(cmdlist->controlop==CMD_END){
 				wait(&cmd_status);
-			}
+			}*/
 		}
 		else if(cmdlist->controlop==CMD_PIPE || cmdlist->controlop==CMD_BACKGROUND){
 			if(waitpid(ret,&wp_status, WNOHANG)==-1){
