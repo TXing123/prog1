@@ -243,7 +243,7 @@ command_alloc(void)
 	
 	// Set all its fields to 0
 	memset(cmd, 0, sizeof(*cmd));
-
+	
 	return cmd;
 }
 
@@ -319,7 +319,7 @@ command_parse(parsestate_t *parsestate)
 	command_t *cmd = command_alloc();
 	if (!cmd)
 		return NULL;
-
+	cmd->controlop=CMD_SEMICOLON;//for zombie control
 
 	int flag_in=0;
 	int flag_out=0;
@@ -358,8 +358,6 @@ command_parse(parsestate_t *parsestate)
 		memset(&token, 0, sizeof(token));
 		parse_gettoken(parsestate, &token);
 
-		//if((flag_in || flag_out || flag_err) && token.type!=TOK_NORMAL)
-		//	goto error;
 
 		switch (token.type) {
 		case TOK_NORMAL:
@@ -520,6 +518,9 @@ command_line_parse(parsestate_t *parsestate, int in_parens)
         		goto error;
         	case TOK_END:
         		goto done;
+        	default:
+        		goto error;
+
         }
 
 		goto done;

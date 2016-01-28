@@ -64,7 +64,7 @@ command_exec(command_t *cmd, int *pass_pipefd)
 {
 	pid_t pid = -1;		// process ID for child
 	int pipefd[2];		// file descriptors for this process's pipe
-
+	int pipe_in=*pass_pipefd;
 	/* EXERCISE: Complete this function!
 	 * We've written some of the skeleton for you, but feel free to
 	 * change it.
@@ -74,6 +74,13 @@ command_exec(command_t *cmd, int *pass_pipefd)
 	// Return -1 if the pipe fails.
 	if (cmd->controlop == CMD_PIPE) {
 		/* Your code here. */
+		if(pipe(pipefd)<0){
+			perror("pipe error");
+			abort();
+		}
+	}
+	else{
+		*pass_pipefd=STDIN_FILENO;
 	}
 
 
@@ -126,7 +133,111 @@ command_exec(command_t *cmd, int *pass_pipefd)
 	//
 
 	/* Your code here. */
+/*
+O_RDONLY	Open the file so that it is read only.
+O_WRONLY	Open the file so that it is write only.
+O_RDWR	Open the file so that it can be read from and written to.
+O_APPEND	Append new information to the end of the file.
+O_TRUNC	Initially clear all data from the file.
+O_CREAT	If the file does not exist, create it. If the O_CREAT option is used, then you must include the third parameter.
+O_EXCL	Combined with the O_CREAT option, it ensures that the caller must create the file. If the file already exists, the call will fail.
+*/
+	pid=fork();
+	int FileDis;
+	if(pid==-1){
+		perror("fork error\n");
+		abort();
+	}
+	else if(pid==0){//child
+		if(cmd->controlop==CMD_PIPE){
+			close(pipefd[0]);
+			if(dup2(pipefd[1],STDOUT_FILENO)<0){
+				perror("PIPE write redirection fail");
+				abort();
+			}
+			close(pipefd[1]);
+		}
+		if(cmd->redirect_filename[0]!=NULL){
+			FileDis=open(cmd->redirect_filename[0],O_RDONLY);
+			if(FileDis<0){
+				perror("input redirections: open fail");
+				abort();
+			}
+			if(dup2(FileDis,STDIN_FILENO)<0){
+				perror("input redirections: redirect fail");
+				abort();
+			}
+			close(FileDis);
+		}
+		else if(pipe_in!=STDIN_FILENO){
+			if(dup2(pipe_in,STDIN_FILENO)<0){
+				perror("PIPE read redirection fail");
+				abort();
+			}
+			close(pipe_in);
+		}
+		if(cmd->redirect_filename[1]!=NULL){
+			FileDis=open(cmd->redirect_filename[1],O_CREAT|O_WRONLY|O_TRUNC,S_IRWXU|S_IRWXG|S_IRWXO);
+			if(FileDis<0){
+				perror("output redirections: open fail");
+				abort();
+			}
+			if(dup2(FileDis,STDOUT_FILENO)<0){
+				perror("output redirections: redirect fail");
+				abort();
+			}
+			close(FileDis);
+		}
+		if(cmd->redirect_filename[2]!=NULL){
+			FileDis=open(cmd->redirect_filename[2],O_CREAT|O_WRONLY|O_TRUNC,S_IRWXU|S_IRWXG|S_IRWXO);
+			if(FileDis<0){
+				perror("error redirections: open fail");
+				abort();
+			}
+			if(dup2(FileDis,STDERR_FILENO)<0){
+				perror("error redirections: redirect fail");
+				abort();
+			}
+			close(FileDis);
+		}
+		if(cmd->subshell!=NULL){
+			int sub_cmd_status=command_line_exec(cmd->subshell);
+			if(sub_cmd_status){
+				perror("subshell error");
+				abort();
+			}
+		}
+		if((cmd->argv[0]=='\0' && !cmd->subshell) || !strcmp(cmd->argv[0],"exit")){//handle empty command and "exit"
+			_exit(EXIT_SUCCESS);
+		}
+		if(!strcmp(cmd->argv[0],"cd") ){
+			if(chdir(cmd->argv[1])<0){
+				perror("cd");
+				exit(EXIT_FAILURE);
+			}
+			exit(EXIT_SUCCESS);
+		}
 
+		int cmd_status=execvp(cmd->argv[0], cmd->argv);
+		if(cmd_status){
+			perror("command execvp error");
+			abort();
+		}
+	}
+	else{//parent
+		if(cmd->controlop==CMD_PIPE){
+			close(pipefd[1]);
+			*pass_pipefd=pipefd[0];
+		}
+		if(cmd->argv[0] && !strcmp(cmd->argv[0],"cd")){
+			if(chdir(cmd->argv[1])<0){
+				perror("cd");
+			}
+		}
+		if(cmd->argv[0] && !strcmp(cmd->argv[0],"exit")){
+			_exit(EXIT_SUCCESS);
+		}
+	}
 	// return the child process ID
 	return pid;
 }
@@ -162,7 +273,8 @@ command_line_exec(command_t *cmdlist)
 {
 	int cmd_status = 0;	    // status of last command executed
 	int pipefd = STDIN_FILENO;  // read end of last pipe
-	
+	pid_t ret;
+	int jobID=0;
 	while (cmdlist) {
 		int wp_status;	    // Hint: use for waitpid's status argument!
 				    // Read the manual page for waitpid() to
@@ -173,9 +285,54 @@ command_line_exec(command_t *cmdlist)
 		// If an error occurs in command_exec, feel free to abort().
 		
 		/* Your code here. */
+		ret=command_exec(cmdlist, &pipefd);
+		if(ret<0){
+			perror("command_exec error");
+		}
+		if(cmdlist->controlop==CMD_AND){
+			if(waitpid(ret,&wp_status, 0)==-1){
+				perror("CMD_AND waitpid error");
+			}
+			if(WIFEXITED(wp_status)){
+				cmd_status=WEXITSTATUS(wp_status);
+				if(cmd_status)
+					goto done;
+			}
+		}
+		else if(cmdlist->controlop==CMD_OR){
+			if(waitpid(ret,&wp_status, 0)==-1){
+				perror("CMD_OR waitpid error");
+			}
+			if(WIFEXITED(wp_status)){
+				cmd_status=WEXITSTATUS(wp_status);
+				if(!cmd_status)
+					goto done;
+			}
+		}
+		else if(cmdlist->controlop==CMD_END || cmdlist->controlop==CMD_SEMICOLON){
+			if(waitpid(ret,&wp_status, 0)==-1){
+				perror("CMD_END waitpid error");
+			}
+			if(WIFEXITED(wp_status)){
+				cmd_status=WEXITSTATUS(wp_status);
+			}
+			if(cmdlist->controlop==CMD_END){
+				wait(&cmd_status);
+			}
+		}
+		else if(cmdlist->controlop==CMD_PIPE || cmdlist->controlop==CMD_BACKGROUND){
+			if(waitpid(ret,&wp_status, WNOHANG)==-1){
+				perror("CMD_PIPE waitpid error");
+			}
+			if(cmdlist->controlop==CMD_BACKGROUND){
+				report_background_job(jobID++,ret);
+			}
+			cmd_status=0;
+		}
 
 		cmdlist = cmdlist->next;
 	}
+	
 
 done:
 	return cmd_status;
