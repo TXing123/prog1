@@ -33,9 +33,6 @@
 /* 
  * Main function for shell.
  */
-
-void signal_handler();
-
 int
 main(int argc, char *argv[])
 {
@@ -46,7 +43,7 @@ main(int argc, char *argv[])
 	// Check for '-q' option: be quiet -- print no prompts
 	if (argc > 1 && strcmp(argv[1], "-q") == 0)
 		quiet = 1;
-	signal(SIGCHLD,signal_handler);
+
 	while (!feof(stdin)) {
 		parsestate_t parsestate;
 		command_t *cmdlist;
@@ -66,8 +63,7 @@ main(int argc, char *argv[])
 		}
 
 		// TODO: invoke some function(s) in cmdline.c for parsing the read string.
-		parse_init(&parsestate,input);
-		cmdlist=command_line_parse(&parsestate,0);
+		XXXXXXXXXXXXXX
 
 		if (!cmdlist) {
 			printf("Syntax error\n");
@@ -77,25 +73,16 @@ main(int argc, char *argv[])
 		// print the command list
 		if (!quiet) {
 			// TODO: invoke some function(s) in cmdline.c for printing out the command for debugging.
-			command_print(cmdlist,1);
+			XXXXXXXXXXXXXX
 			// why do we need to do this?
 			fflush(stdout);
 		}
 
 		// and run it!
-		int not_impotant=0;
-		waitpid(-1,&not_impotant,WNOHANG);//kill zombies
 		if (cmdlist)
 			command_line_exec(cmdlist);
-		if (cmdlist)
-			command_free(cmdlist);
 
 	}
 
 	return 0;
 }
-
-void signal_handler(){
-	int not_impotant=0;
-	waitpid(-1,&not_impotant,WNOHANG);//kill zombies
-}	
